@@ -1,0 +1,106 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Help Desk</title>
+<style>
+  body { font-family: sans-serif; max-width: 700px; margin: 40px auto; }
+  button { margin: 4px; padding: 6px 12px; }
+  #ticketList div { border: 1px solid #ccc; padding: 8px; margin: 6px 0; }
+  #liveLog { background: #eef; padding: 8px; height: 120px; overflow-y: auto; font-size: 13px; }
+  #loggedInAs { font-weight: bold; }
+</style>
+</head>
+<body>
+
+<h1>Help Desk</h1>
+
+<div id="loginBox">
+  <h2>Login</h2>
+  <p>Quick-fill demo users:</p>
+  <div id="userButtons"></div>
+</div>
+
+<div id="appBox" style="display:none;">
+  <p>Logged in as <span id="loggedInAs"></span></p>
+
+  <h2>New ticket</h2>
+  <input id="ticketTitle" placeholder="Describe your issue">
+  <button onclick="createTicket()">Submit</button>
+
+  <h2>Tickets</h2>
+  <button onclick="loadTickets()">Refresh</button>
+  <div id="ticketList"></div>
+
+  <h2>Live updates</h2>
+  <div id="liveLog"></div>
+</div>
+
+<script>
+const AUTH_URL = "http://localhost:8001";
+const TICKET_URL = "http://localhost:8002/tickets";
+const STATS_URL = "http://localhost:8005/stats";
+const WS_URL = "ws://localhost:8003/ws";
+
+let currentUser = null;
+
+async function loadUsers() {
+  const res = await fetch(`${AUTH_URL}/users`);
+  const users = await res.json();
+  const box = document.getElementById("userButtons");
+  users.forEach(u => {
+    const btn = document.createElement("button");
+    btn.textContent = `${u.username} (${u.role})`;
+    btn.onclick = () => login(u);
+    box.appendChild(btn);
+  });
+}
+
+function login(user) {
+  currentUser = user;
+  document.getElementById("loginBox").style.display = "none";
+  document.getElementById("appBox").style.display = "block";
+  document.getElementById("loggedInAs").textContent = `${user.username} (${user.role})`;
+  loadTickets();
+  connectWebSocket();
+}
+
+async function createTicket() {
+  const title = document.getElementById("ticketTitle").value;
+  if (!title) return;
+  const url = `${TICKET_URL}?title=${encodeURIComponent(title)}&student=${encodeURIComponent(currentUser.username)}`;
+  await fetch(url, { method: "POST" });
+  document.getElementById("ticketTitle").value = "";
+  loadTickets();
+}
+
+async function loadTickets() {
+  const res = await fetch(TICKET_URL);
+  const tickets = await res.json();
+  const list = document.getElementById("ticketList");
+  list.innerHTML = "";
+  tickets.forEach(t => {
+    const div = document.createElement("div");
+    div.textContent = `#${t.id} [${t.status}] ${t.title} - by ${t.student}` + (t.staff ? ` - assigned to ${t.staff}` : "");
+    list.appendChild(div);
+  });
+}
+
+function connectWebSocket() {
+  const ws = new WebSocket(WS_URL);
+  ws.onmessage = (msg) => {
+    const event = JSON.parse(msg.data);
+    const log = document.getElementById("liveLog");
+    const line = document.createElement("div");
+    line.textContent = `${event.event}: ticket #${event.ticket.id} is now "${event.ticket.status}"`;
+    log.appendChild(line);
+    log.scrollTop = log.scrollHeight;
+    loadTickets();
+  };
+}
+
+loadUsers();
+</script>
+
+</body>
+</html>
