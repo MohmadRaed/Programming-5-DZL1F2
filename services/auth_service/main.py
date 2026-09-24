@@ -5,26 +5,18 @@ import uvicorn
 app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
-# demo users, no passwords, no tokens - just for the login screen
-USERS = [
-    {"username": "alice", "role": "student"},
-    {"username": "bob", "role": "student"},
-    {"username": "carol", "role": "staff"},
-    {"username": "dave", "role": "staff"},
-]
-
-
-@app.get("/users")
-def list_users():
-    return USERS
+# staff-only login, plain text on purpose - students never log in
+STAFF = {
+    "carol": "carol123",
+    "dave": "dave123",
+}
 
 
 @app.post("/login")
-def login(username: str):
-    for u in USERS:
-        if u["username"] == username:
-            return u
-    return {"error": "unknown user"}
+def login(username: str, password: str):
+    if STAFF.get(username) == password:
+        return {"username": username, "role": "staff"}
+    return {"error": "invalid credentials"}
 
 
 if __name__ == "__main__":

@@ -8,6 +8,7 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], all
 
 NOTIFY_URL = "http://localhost:8003/broadcast"
 
+# the only place tickets are stored
 tickets = []
 next_id = 1
 
@@ -17,10 +18,18 @@ def list_tickets():
     return tickets
 
 
+@app.get("/tickets/{ticket_id}")
+def get_ticket(ticket_id: int):
+    for t in tickets:
+        if t["id"] == ticket_id:
+            return t
+    return {"error": "not found"}
+
+
 @app.post("/tickets")
-def create_ticket(title: str, student: str):
+def create_ticket(name: str, title: str):
     global next_id
-    ticket = {"id": next_id, "title": title, "student": student, "status": "open", "staff": None}
+    ticket = {"id": next_id, "name": name, "title": title, "status": "open", "staff": None}
     tickets.append(ticket)
     next_id += 1
     httpx.post(NOTIFY_URL, json={"event": "ticket_created", "ticket": ticket})

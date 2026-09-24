@@ -9,7 +9,7 @@ AUTH_URL = "http://localhost:8001"
 TICKET_URL = "http://localhost:8002/tickets"
 STAFF_URL = "http://localhost:8004"
 STATS_URL = "http://localhost:8005/stats"
-WS_URL = "ws://localhost:8003/ws"
+WS_URL = "ws://localhost:8003/ws?role=staff"
 
 
 def listen_for_events():
@@ -24,12 +24,14 @@ async def ws_loop():
 
 
 def login():
-    users = httpx.get(f"{AUTH_URL}/users").json()
-    print("Demo users (quick login):")
-    for i, u in enumerate(users):
-        print(f"  {i + 1}. {u['username']} ({u['role']})")
-    choice = int(input("Choose a user by number: ")) - 1
-    return users[choice]
+    print("Staff login (demo: carol/carol123 or dave/dave123)")
+    username = input("Username: ")
+    password = input("Password: ")
+    result = httpx.post(f"{AUTH_URL}/login", params={"username": username, "password": password}).json()
+    if "error" in result:
+        print(result["error"])
+        return login()
+    return result
 
 
 def main():
@@ -40,24 +42,21 @@ def main():
     threading.Thread(target=listen_for_events, daemon=True).start()
 
     while True:
-        print("\n1. List tickets\n2. Create ticket\n3. Update ticket status\n4. Assign ticket to staff\n5. View stats\n6. Quit")
+        print("\n1. List tickets\n2. Change ticket status\n3. Assign ticket\n4. View stats\n5. Quit")
         choice = input("> ")
         if choice == "1":
             print(httpx.get(TICKET_URL).json())
         elif choice == "2":
-            title = input("Ticket title: ")
-            httpx.post(TICKET_URL, params={"title": title, "student": user["username"]})
-        elif choice == "3":
             tid = int(input("Ticket id: "))
-            status = input("New status: ")
+            status = input("New status (open/assigned/in_progress/done): ")
             httpx.patch(f"{TICKET_URL}/{tid}", params={"status": status})
-        elif choice == "4":
+        elif choice == "3":
             tid = int(input("Ticket id: "))
             staff = input("Staff username: ")
             httpx.post(f"{STAFF_URL}/assign", params={"ticket_id": tid, "staff": staff})
-        elif choice == "5":
+        elif choice == "4":
             print(httpx.get(STATS_URL).json())
-        elif choice == "6":
+        elif choice == "5":
             break
 
 

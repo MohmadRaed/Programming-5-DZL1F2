@@ -2,80 +2,132 @@
 
 ## 1. The idea
 
-A tiny help-desk ticket system: a **student** submits a ticket describing a problem,
-**staff** picks it up and changes its status, and everyone watching (student and
-staff, on the CLI or the web page) sees the status change **live**, the instant it
-happens — no refresh needed. It's simple because there is exactly one piece of
-data (a ticket) and one thing that changes about it (its status), which is enough
-to justify 5 microservices and a real-time push without any extra complexity.
+Students report a problem (e.g. "Wi-Fi down in building B") **without logging
+in** — they get back a ticket number and can watch its status change live on
+the web page just by entering that number. Staff log in, pick up tickets,
+assign them, and move them through `open → assigned → in_progress → done`.
+Every change shows up instantly, for staff and for the student who owns that
+ticket, with no page refresh. It's simple because there is exactly one piece
+of data (a ticket) and one thing that changes about it (its status), which is
+enough to justify 5 microservices and real-time WebSocket updates without any
+extra complexity.
 
 ## 2. Architecture
 
+| Service | Port | Job | Talks to |
+|---|---|---|---|
+| auth-service | 8001 | Staff login only: `POST /login` checks username + password | nothing |
+| ticket-service | 8002 | The only service that stores tickets: create, list, get one, update | notify-service, after every create/update |
+| notify-service | 8003 | The only service with WebSockets: `POST /broadcast` pushes events to connected clients | nothing (pushes to clients) |
+| staff-service | 8004 | Staff list + `POST /assign` — does not store tickets itself, asks ticket-service to update | ticket-service |
+| stats-service | 8005 | `GET /stats`: counts tickets by status | ticket-service |
+
+```mermaid
+flowchart LR
+  SW["Student web page<br/>no login"]
+  SC["Staff CLI<br/>login"]
+  A["auth-service :8001"]
+  SF["staff-service :8004"]
+  ST["stats-service :8005"]
+  T["ticket-service :8002<br/>stores tickets"]
+  N["notify-service :8003<br/>WebSocket hub"]
+  SW -->|HTTP| T
+  SC -->|HTTP| A
+  SC -->|HTTP| SF
+  SC -->|HTTP| ST
+  SC -->|HTTP| T
+  SF -->|HTTP| T
+  ST -->|HTTP| T
+  T -->|POST /broadcast| N
+  N -.->|WebSocket: all events| SC
+  N -.->|WebSocket: only their ticket| SW
 ```
-                 ┌───────────────┐
-                 │  auth-service │  (login / demo users)
-                 │   port 8001   │
-                 └───────────────┘
 
-┌────────────┐   HTTP    ┌────────────────┐   HTTP POST    ┌─────────────────┐
-│ staff-svc  │ ────────▶ │  ticket-service │ ─────────────▶ │  notify-service  │
-│ port 8004  │  PATCH    │   port 8002     │  /broadcast    │   port 8003      │
-└────────────┘           └────────────────┘                └─────────────────┘
-                                  ▲                                   │
-                                  │ GET /tickets                      │ WebSocket
-                          ┌───────┴───────┐                           ▼
-                          │ stats-service │                  ┌──────────────────┐
-                          │  port 8005    │                  │  CLI client       │
-                          └───────────────┘                  │  Web client       │
-                                                              └──────────────────┘
+Rules shown in the chart:
+- Students only ever talk to ticket-service — they never touch auth-service.
+- Only ticket-service calls notify-service; staff-service and stats-service
+  always go through ticket-service instead of storing or broadcasting
+  anything themselves.
+- notify-service sends **all** events to staff, and a student only receives
+  events for their own ticket. Staff connect with
+  `ws://localhost:8003/ws?role=staff`, students with
+  `ws://localhost:8003/ws?ticket=<id>`.
+
+### Workflow
+
+```mermaid
+sequenceDiagram
+    autonumber
+    participant S as Student (web page)
+    participant C as Staff CLI
+    participant A as auth-service :8001
+    participant SF as staff-service :8004
+    participant T as ticket-service :8002
+    participant N as notify-service :8003
+    participant ST as stats-service :8005
+
+    Note over C,A: 1. Staff logs in
+    C->>A: POST /login (username, password)
+    A-->>C: ok + role staff
+    C-)N: open WebSocket /ws?role=staff
+
+    Note over S,T: 2. Student submits a ticket (no login)
+    S->>T: POST /tickets (name, title)
+    T->>T: save ticket, status = open
+    T-->>S: ticket id 4
+    S-)N: open WebSocket /ws?ticket=4
+    T->>N: POST /broadcast (ticket_created)
+    N-)C: push: new ticket 4
+
+    Note over C,N: 3. Staff assigns the ticket
+    C->>SF: POST /assign (ticket 4, carol)
+    SF->>T: PATCH /tickets/4 (staff=carol, status=assigned)
+    T->>N: POST /broadcast (ticket_updated)
+    N-)S: push: your ticket 4 is assigned
+    N-)C: push: ticket 4 updated
+    T-->>SF: updated ticket
+    SF-->>C: 200 OK
+
+    Note over S,T: 4. Student tracks the ticket later
+    S->>T: GET /tickets/4
+    T-->>S: status: done
+
+    Note over C,ST: 5. Staff views stats
+    C->>ST: GET /stats
+    ST->>T: GET /tickets
+    T-->>ST: all tickets
+    ST-->>C: total + count by status
 ```
-
-Students and staff talk to `ticket-service`, `staff-service`, `stats-service` and
-`auth-service` directly over plain HTTP from the clients. `notify-service` is the
-only service that holds WebSocket connections; every other service just does a
-normal HTTP POST to it when something happens, and it pushes that event out to
-every connected client.
-
-### Services, ports, endpoints
-
-| Service          | Port | Endpoints                                   | Talks to |
-|-------------------|------|----------------------------------------------|----------|
-| auth-service      | 8001 | `GET /users`, `POST /login`                   | —        |
-| ticket-service    | 8002 | `GET /tickets`, `POST /tickets`, `PATCH /tickets/{id}` | notify-service |
-| notify-service    | 8003 | `WS /ws`, `POST /broadcast`                   | —        |
-| staff-service     | 8004 | `GET /staff`, `POST /assign`                  | ticket-service |
-| stats-service     | 8005 | `GET /stats`                                   | ticket-service |
 
 ### Clients
 
-- **CLI client** (`clients/cli_client/cli.py`): menu-driven, talks to the services
-  over HTTP with `httpx`, and listens for live events over WebSocket in a
-  background thread.
-- **Web client** (`clients/web_client/index.html`): one plain HTML file, vanilla
-  JS, `fetch()` for HTTP calls and the browser's built-in `WebSocket`.
+- **Student web page** (`clients/web_client/index.html`, plain HTML +
+  vanilla JS): no login. A form (name + problem) submits to ticket-service
+  and shows "Your ticket #4". A "Track my ticket" box looks up any ticket
+  number and opens a WebSocket scoped to that ticket, so status changes
+  appear live.
+- **Staff CLI** (`clients/cli_client/cli.py`): asks for username + password
+  against auth-service, then a menu — list tickets, change status, assign
+  ticket, view stats, quit. A background thread holds a `role=staff`
+  WebSocket and prints `[LIVE]` events as they arrive.
 
 No database: everything lives in a Python list/dict inside `ticket-service`
-(and small hardcoded lists in `auth-service`/`staff-service`). No Docker:
-every service is a single `main.py` you run directly with `python3`.
+(small hardcoded dicts in `auth-service`/`staff-service`). No Docker: every
+service is a single `main.py` run directly with `python3`.
 
 ## 3. Install & run
-
-From the project root, in one terminal:
 
 ```bash
 pip install -r requirements.txt
 ```
 
-### Run every service
-
-Either use the helper script (all 5 in one terminal, backgrounded):
+### Run all 5 services
 
 ```bash
 ./run_all.sh
 ```
 
-Or, for the demo, open **5 separate terminals** so you can show each service
-starting and point at its logs:
+Or open 5 separate terminals for the demo, so you can point at each one:
 
 ```bash
 python3 services/auth_service/main.py
@@ -87,85 +139,85 @@ python3 services/stats_service/main.py
 
 ### Run the web client
 
-The page must be served from inside its own folder (opening the HTML file
-directly also works for the demo, but serving it avoids any browser file://
-quirks):
+Serve it from inside its own folder (don't just double-click the HTML file):
 
 ```bash
 cd clients/web_client
 python3 -m http.server 8080
 ```
 
-Then open `http://localhost:8080` in a browser.
+Open `http://localhost:8080`.
 
-### Run the CLI client
-
-In another terminal:
+### Run the staff CLI
 
 ```bash
 python3 clients/cli_client/cli.py
 ```
 
+Demo staff logins: `carol` / `carol123` or `dave` / `dave123`.
+
 ## 4. Demo script (4 steps)
 
-1. Start all 5 services (show the 5 terminals / `run_all.sh`), then open the
-   web client in a browser and log in as `alice` (student) with one click.
-2. In the CLI client, log in as `carol` (staff) — choice `3` in the login menu.
-3. On the web page, submit a ticket as alice. Immediately point at the CLI:
-   it prints a `[LIVE] ticket_created` event with no manual refresh.
-4. In the CLI, use option 4 to assign the ticket to `carol`, or option 3 to
-   change its status. Switch back to the browser: the ticket list and the
-   "Live updates" log update instantly, then show `GET /stats` (CLI option 5
-   or `curl localhost:8005/stats`) to show the aggregated counts.
+1. Start all 5 services and open the web page. As a student (no login
+   needed), submit a ticket — the page shows "Your ticket #1".
+2. In another terminal, log into the staff CLI as `carol`. It immediately
+   prints `[LIVE] ticket_created` for that ticket — no refresh, no polling.
+3. In the CLI, assign the ticket to `carol` (option 3) or change its status
+   (option 2). Switch to the browser: the ticket status and the "Live
+   updates" box change instantly, because the student's page only opened a
+   WebSocket for that one ticket number.
+4. In the CLI, view stats (option 4) to show `stats-service` pulling live
+   counts from `ticket-service` over plain HTTP.
 
 ## 5. Defense cheat-sheet
 
 **Why microservices instead of one app?**
 Each service owns one small responsibility (auth, tickets, notifications,
 staff, stats) and they only know each other's HTTP address — nothing is
-shared in memory or imported between them. That's the whole point to defend:
-independent, replaceable, single-purpose processes.
+imported or shared in memory between them.
 
 **How do the services talk to each other?**
 Plain HTTP with `httpx`: `staff-service` calls `PATCH /tickets/{id}` on
-`ticket-service` to assign a ticket; `stats-service` calls `GET /tickets` on
-`ticket-service` to compute counts; `ticket-service` calls `POST /broadcast`
-on `notify-service` whenever a ticket is created or updated.
+`ticket-service` to assign a ticket; `stats-service` calls `GET /tickets` to
+compute counts; `ticket-service` calls `POST /broadcast` on `notify-service`
+whenever a ticket is created or updated. Neither `staff-service` nor
+`stats-service` touches `notify-service` directly — only `ticket-service`
+does, because it's the only service that actually changes ticket data.
 
-**Where is the real-time part?**
-`notify-service` is the only service holding WebSocket connections
-(`/ws`). Every other service never talks WebSocket — it just does a normal
-HTTP POST to `notify-service`'s `/broadcast`, which then pushes that JSON
-event to every connected client (CLI and web) over their open WebSocket.
-This keeps "real-time" isolated to one simple service instead of spreading
-WebSocket code everywhere.
+**Where is the real-time part, and why is it scoped?**
+`notify-service` is the only service holding WebSocket connections. A
+connection is tagged at connect time — `role=staff` gets every event, and
+`ticket=<id>` only gets events for that one ticket. This is why a student
+can safely track a ticket with just its number: they can't see anyone
+else's tickets over the socket, because notify-service filters by the
+`ticket` query param before sending.
 
 **Why no database?**
-The scope is one in-memory list of tickets. Adding a database would mean
-adding schema, migrations and persistence code that doesn't teach anything
-new about *microservices* or *WebSockets*, which are the two things being
-graded — it would just be more surface area to defend for no benefit. Data
-resets when `ticket-service` restarts, which is an accepted trade-off for a
-demo.
+The scope is one in-memory list of tickets. A database would add schema,
+migrations and persistence code that doesn't teach anything new about
+*microservices* or *WebSockets* — the two things being graded. Data resets
+when `ticket-service` restarts, which is an accepted trade-off for a demo.
 
 **Known simplifications (say these upfront in the defense):**
-- Login is a name pick with no password/token — deliberately trivial so the
-  demo is fast; there is no auth/authorization layer.
+- Students never authenticate at all — a ticket number is the only "proof"
+  of ownership, which is fine for a demo but not for production.
+- Staff passwords are plain text in a hardcoded dict, no hashing, no
+  tokens/JWT — deliberately trivial so the login step is fast to defend.
 - Data is in-memory, so it's lost on restart and isn't shared across
   multiple instances of the same service.
 - No retries/circuit breakers on the HTTP calls between services — if
-  `notify-service` is down, `ticket-service`'s broadcast call will just
-  raise an error (acceptable for the scope of the course).
-- CORS is wide open (`allow_origins=["*"]`) since this is a local demo, not
-  a deployed system.
+  `notify-service` is down, `ticket-service`'s broadcast call raises an
+  error (acceptable for the scope of the course).
+- CORS is wide open (`allow_origins=["*"]`) since this is a local demo.
 
 ## What was tested vs. not
 
-Tested end-to-end during development: full HTTP flow (login, create ticket,
-update ticket, assign, stats), WebSocket broadcast on create/update, the CLI
-client end-to-end, and the web client end-to-end (login, create, live update
-log, ticket list refresh) in a browser.
+Tested end-to-end: the full HTTP flow (ticket creation, status update,
+assign, stats), WebSocket broadcast filtering (staff receiving all events,
+a student-scoped connection only receiving events for its own ticket id),
+the staff CLI login + live event thread, and the web page's submit/track
+flow with live updates in a real browser.
 
-Not tested: behavior under multiple simultaneous CLI+web clients at once
-beyond a basic check, and behavior when a service is killed mid-request
-(the simplifications above cover why that's out of scope).
+Not tested: multiple students tracking different tickets at the same time,
+and behavior when a service is killed mid-request (covered by the
+simplifications above).
