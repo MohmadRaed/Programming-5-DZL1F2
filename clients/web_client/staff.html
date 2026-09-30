@@ -7,22 +7,24 @@
   * { box-sizing: border-box; }
   body {
     font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
-    max-width: 800px;
+    max-width: 760px;
     margin: 40px auto;
-    padding: 0 16px;
-    background: #f4f6f8;
+    padding: 0 16px 40px;
+    min-height: 100vh;
+    background: linear-gradient(160deg, #eef2ff 0%, #f5f3ff 45%, #fdf2f8 100%);
     color: #1f2937;
   }
   a.back { color: #4f46e5; text-decoration: none; font-size: 0.85rem; }
   h1 { font-size: 1.6rem; margin-bottom: 4px; }
   .subtitle { color: #6b7280; margin-top: 0; margin-bottom: 24px; }
   .card {
-    background: #fff;
-    border: 1px solid #e5e7eb;
-    border-radius: 10px;
+    background: rgba(255,255,255,0.85);
+    backdrop-filter: blur(6px);
+    border: 1px solid rgba(255,255,255,0.6);
+    border-radius: 14px;
     padding: 20px;
     margin-bottom: 20px;
-    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+    box-shadow: 0 4px 20px rgba(79,70,229,0.08);
   }
   .card h2 { margin-top: 0; font-size: 1.1rem; }
   button {
@@ -33,28 +35,71 @@
     border-radius: 6px;
     font-size: 0.9rem;
     cursor: pointer;
+    transition: background 0.15s, transform 0.1s;
   }
   button:hover { background: #4338ca; }
+  button:active { transform: scale(0.97); }
   button.secondary { background: #6b7280; }
   button.secondary:hover { background: #4b5563; }
   #loginBox button { margin: 4px 8px 4px 0; }
   #appBox { display: none; }
-  table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
-  th, td { text-align: left; padding: 8px; border-bottom: 1px solid #e5e7eb; }
-  select { padding: 4px 6px; border-radius: 6px; border: 1px solid #d1d5db; }
-  .badge {
-    display: inline-block;
-    padding: 3px 10px;
-    border-radius: 999px;
-    font-size: 0.75rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    color: #fff;
+  select {
+    padding: 6px 8px;
+    border-radius: 6px;
+    border: 1px solid #d1d5db;
+    font-size: 0.85rem;
+    background: #fff;
   }
-  .badge-open { background: #6b7280; }
-  .badge-assigned { background: #d97706; }
-  .badge-in_progress { background: #2563eb; }
-  .badge-done { background: #16a34a; }
+
+  .ticket-card {
+    background: rgba(255,255,255,0.85);
+    backdrop-filter: blur(6px);
+    border: 1px solid rgba(255,255,255,0.6);
+    border-radius: 14px;
+    padding: 18px 20px;
+    margin-bottom: 16px;
+    box-shadow: 0 4px 20px rgba(79,70,229,0.08);
+  }
+  .ticket-head { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 6px; }
+  .ticket-title { font-weight: 600; }
+  .ticket-meta { color: #6b7280; font-size: 0.8rem; }
+  .ticket-actions { margin-top: 14px; display: flex; gap: 8px; align-items: center; }
+
+  /* status stepper (shared look with the student page) */
+  .stepper { display: flex; align-items: flex-start; margin: 22px 0 10px; }
+  .step { flex: 1; text-align: center; position: relative; }
+  .step-line {
+    position: absolute; top: 13px; left: -50%; width: 100%; height: 3px;
+    background: #e5e7eb; z-index: 0;
+  }
+  .step:first-child .step-line { display: none; }
+  .step-line-fill {
+    position: absolute; top: 0; left: 0; height: 100%; width: 0%;
+    background: linear-gradient(90deg, #6366f1, #a855f7);
+    transition: width 0.6s ease;
+  }
+  .step-dot {
+    position: relative; z-index: 1;
+    width: 26px; height: 26px; margin: 0 auto 6px;
+    border-radius: 50%; background: #e5e7eb; color: #9ca3af;
+    display: flex; align-items: center; justify-content: center;
+    font-size: 0.7rem; font-weight: 700;
+    transition: background 0.4s, color 0.4s, box-shadow 0.4s;
+  }
+  .step-label { font-size: 0.65rem; color: #9ca3af; text-transform: capitalize; transition: color 0.4s; }
+  .step.done .step-dot { background: linear-gradient(135deg, #6366f1, #a855f7); color: #fff; }
+  .step.done .step-label { color: #4338ca; font-weight: 600; }
+  .step.current .step-dot {
+    background: linear-gradient(135deg, #6366f1, #a855f7); color: #fff;
+    animation: pulse 1.6s infinite;
+  }
+  .step.current .step-label { color: #4338ca; font-weight: 700; }
+  @keyframes pulse {
+    0%   { box-shadow: 0 0 0 0 rgba(99,102,241,0.5); }
+    70%  { box-shadow: 0 0 0 8px rgba(99,102,241,0); }
+    100% { box-shadow: 0 0 0 0 rgba(99,102,241,0); }
+  }
+
   #statsLine { font-size: 0.9rem; color: #374151; }
   #liveLog {
     background: #f9fafb;
@@ -66,7 +111,11 @@
     font-size: 0.8rem;
     color: #4b5563;
   }
-  #liveLog div { padding: 2px 0; }
+  #liveLog div { padding: 2px 0; animation: fadeIn 0.3s ease; }
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-4px); }
+    to   { opacity: 1; transform: translateY(0); }
+  }
 </style>
 </head>
 <body>
@@ -86,13 +135,9 @@
   <div class="card">
     <h2>Tickets</h2>
     <button class="secondary" onclick="loadTickets()">Refresh</button>
-    <table>
-      <thead>
-        <tr><th>#</th><th>Reported by</th><th>Issue</th><th>Status</th><th>Assigned to</th><th></th></tr>
-      </thead>
-      <tbody id="ticketRows"></tbody>
-    </table>
   </div>
+
+  <div id="ticketList"></div>
 
   <div class="card">
     <h2>Stats</h2>
@@ -112,6 +157,7 @@ const TICKET_URL = "http://localhost:8002/tickets";
 const STAFF_URL = "http://localhost:8004";
 const STATS_URL = "http://localhost:8005/stats";
 const WS_URL = "ws://localhost:8003/ws?role=staff";
+const STATUSES = ["open", "assigned", "in_progress", "done"];
 
 let currentUser = null;
 
@@ -133,25 +179,33 @@ async function login(username, password) {
 
 async function loadTickets() {
   const tickets = await (await fetch(TICKET_URL)).json();
-  const rows = document.getElementById("ticketRows");
-  rows.innerHTML = "";
-  tickets.forEach(t => rows.appendChild(ticketRow(t)));
+  const list = document.getElementById("ticketList");
+  list.innerHTML = "";
+  tickets.forEach(t => list.appendChild(ticketCard(t)));
 }
 
-function ticketRow(t) {
-  const tr = document.createElement("tr");
-  tr.innerHTML = `
-    <td>#${t.id}</td>
-    <td>${t.name}</td>
-    <td>${t.title}</td>
-    <td><span class="badge badge-${t.status}">${t.status.replace("_", " ")}</span></td>
-    <td>${t.staff || "-"}</td>
-    <td></td>
+function ticketCard(t) {
+  const div = document.createElement("div");
+  div.className = "ticket-card";
+  div.innerHTML = `
+    <div class="ticket-head">
+      <span class="ticket-title">#${t.id} - ${t.title}</span>
+      <span class="ticket-meta">reported by ${t.name}${t.staff ? " - assigned to " + t.staff : ""}</span>
+    </div>
+    <div class="stepper" id="stepper-${t.id}">
+      <div class="step" data-status="open"><div class="step-line"><div class="step-line-fill"></div></div><div class="step-dot">1</div><div class="step-label">Open</div></div>
+      <div class="step" data-status="assigned"><div class="step-line"><div class="step-line-fill"></div></div><div class="step-dot">2</div><div class="step-label">Assigned</div></div>
+      <div class="step" data-status="in_progress"><div class="step-line"><div class="step-line-fill"></div></div><div class="step-dot">3</div><div class="step-label">In progress</div></div>
+      <div class="step" data-status="done"><div class="step-line"><div class="step-line-fill"></div></div><div class="step-dot">4</div><div class="step-label">Done</div></div>
+    </div>
+    <div class="ticket-actions"></div>
   `;
-  const actionCell = tr.children[5];
 
+  renderStepper(div.querySelector(`#stepper-${t.id}`), t.status);
+
+  const actions = div.querySelector(".ticket-actions");
   const statusSelect = document.createElement("select");
-  ["open", "assigned", "in_progress", "done"].forEach(s => {
+  STATUSES.forEach(s => {
     const opt = document.createElement("option");
     opt.value = s;
     opt.textContent = s.replace("_", " ");
@@ -159,16 +213,26 @@ function ticketRow(t) {
     statusSelect.appendChild(opt);
   });
   statusSelect.onchange = () => updateStatus(t.id, statusSelect.value);
-  actionCell.appendChild(statusSelect);
+  actions.appendChild(statusSelect);
 
   const assignBtn = document.createElement("button");
   assignBtn.textContent = "Assign to me";
   assignBtn.className = "secondary";
-  assignBtn.style.marginLeft = "6px";
   assignBtn.onclick = () => assignToMe(t.id);
-  actionCell.appendChild(assignBtn);
+  actions.appendChild(assignBtn);
 
-  return tr;
+  return div;
+}
+
+function renderStepper(stepperEl, status) {
+  const currentIndex = STATUSES.indexOf(status);
+  stepperEl.querySelectorAll(".step").forEach((el, i) => {
+    el.classList.remove("done", "current");
+    if (i < currentIndex) el.classList.add("done");
+    if (i === currentIndex) el.classList.add("current");
+    const fill = el.querySelector(".step-line-fill");
+    if (fill) fill.style.width = i <= currentIndex ? "100%" : "0%";
+  });
 }
 
 async function updateStatus(ticketId, status) {
