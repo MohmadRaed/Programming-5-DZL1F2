@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<title>Help Desk - Staff</title>
+<style>
+  * { box-sizing: border-box; }
+  body {
+    font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
+    max-width: 800px;
+    margin: 40px auto;
+    padding: 0 16px;
+    background: #f4f6f8;
+    color: #1f2937;
+  }
+  a.back { color: #4f46e5; text-decoration: none; font-size: 0.85rem; }
+  h1 { font-size: 1.6rem; margin-bottom: 4px; }
+  .subtitle { color: #6b7280; margin-top: 0; margin-bottom: 24px; }
+  .card {
+    background: #fff;
+    border: 1px solid #e5e7eb;
+    border-radius: 10px;
+    padding: 20px;
+    margin-bottom: 20px;
+    box-shadow: 0 1px 2px rgba(0,0,0,0.04);
+  }
+  .card h2 { margin-top: 0; font-size: 1.1rem; }
+  button {
+    padding: 8px 16px;
+    background: #4f46e5;
+    color: #fff;
+    border: none;
+    border-radius: 6px;
+    font-size: 0.9rem;
+    cursor: pointer;
+  }
+  button:hover { background: #4338ca; }
+  button.secondary { background: #6b7280; }
+  button.secondary:hover { background: #4b5563; }
+  #loginBox button { margin: 4px 8px 4px 0; }
+  #appBox { display: none; }
+  table { width: 100%; border-collapse: collapse; font-size: 0.9rem; }
+  th, td { text-align: left; padding: 8px; border-bottom: 1px solid #e5e7eb; }
+  select { padding: 4px 6px; border-radius: 6px; border: 1px solid #d1d5db; }
+  .badge {
+    display: inline-block;
+    padding: 3px 10px;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 600;
+    text-transform: uppercase;
+    color: #fff;
+  }
+  .badge-open { background: #6b7280; }
+  .badge-assigned { background: #d97706; }
+  .badge-in_progress { background: #2563eb; }
+  .badge-done { background: #16a34a; }
+  #statsLine { font-size: 0.9rem; color: #374151; }
+  #liveLog {
+    background: #f9fafb;
+    border: 1px solid #e5e7eb;
+    border-radius: 6px;
+    padding: 8px 10px;
+    height: 110px;
+    overflow-y: auto;
+    font-size: 0.8rem;
+    color: #4b5563;
+  }
+  #liveLog div { padding: 2px 0; }
+</style>
+</head>
+<body>
+
+<a class="back" href="index.html">&larr; Back</a>
+<h1>Campus Help Desk - Staff</h1>
+<p class="subtitle" id="pageSubtitle">Log in to manage tickets.</p>
+
+<div class="card" id="loginBox">
+  <h2>Quick login (demo)</h2>
+  <button onclick="login('carol', 'carol123')">Log in as carol</button>
+  <button onclick="login('dave', 'dave123')">Log in as dave</button>
+  <p id="loginError" style="color:#b91c1c;"></p>
+</div>
+
+<div id="appBox">
+  <div class="card">
+    <h2>Tickets</h2>
+    <button class="secondary" onclick="loadTickets()">Refresh</button>
+    <table>
+      <thead>
+        <tr><th>#</th><th>Reported by</th><th>Issue</th><th>Status</th><th>Assigned to</th><th></th></tr>
+      </thead>
+      <tbody id="ticketRows"></tbody>
+    </table>
+  </div>
+
+  <div class="card">
+    <h2>Stats</h2>
+    <button class="secondary" onclick="loadStats()">Refresh</button>
+    <p id="statsLine"></p>
+  </div>
+
+  <div class="card">
+    <h2>Live updates</h2>
+    <div id="liveLog"></div>
+  </div>
+</div>
+
+<script>
+const AUTH_URL = "http://localhost:8001";
+const TICKET_URL = "http://localhost:8002/tickets";
+const STAFF_URL = "http://localhost:8004";
+const STATS_URL = "http://localhost:8005/stats";
+const WS_URL = "ws://localhost:8003/ws?role=staff";
+
+let currentUser = null;
+
+async function login(username, password) {
+  const res = await fetch(`${AUTH_URL}/login?username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`, { method: "POST" });
+  const result = await res.json();
+  if (result.error) {
+    document.getElementById("loginError").textContent = result.error;
+    return;
+  }
+  currentUser = result;
+  document.getElementById("loginBox").style.display = "none";
+  document.getElementById("appBox").style.display = "block";
+  document.getElementById("pageSubtitle").textContent = `Logged in as ${currentUser.username} (staff)`;
+  loadTickets();
+  loadStats();
+  connectWebSocket();
+}
+
+async function loadTickets() {
+  const tickets = await (await fetch(TICKET_URL)).json();
+  const rows = document.getElementById("ticketRows");
+  rows.innerHTML = "";
+  tickets.forEach(t => rows.appendChild(ticketRow(t)));
+}
+
+function ticketRow(t) {
+  const tr = document.createElement("tr");
+  tr.innerHTML = `
+    <td>#${t.id}</td>
+    <td>${t.name}</td>
+    <td>${t.title}</td>
+    <td><span class="badge badge-${t.status}">${t.status.replace("_", " ")}</span></td>
+    <td>${t.staff || "-"}</td>
+    <td></td>
+  `;
+  const actionCell = tr.children[5];
+
+  const statusSelect = document.createElement("select");
+  ["open", "assigned", "in_progress", "done"].forEach(s => {
+    const opt = document.createElement("option");
+    opt.value = s;
+    opt.textContent = s.replace("_", " ");
+    if (s === t.status) opt.selected = true;
+    statusSelect.appendChild(opt);
+  });
+  statusSelect.onchange = () => updateStatus(t.id, statusSelect.value);
+  actionCell.appendChild(statusSelect);
+
+  const assignBtn = document.createElement("button");
+  assignBtn.textContent = "Assign to me";
+  assignBtn.className = "secondary";
+  assignBtn.style.marginLeft = "6px";
+  assignBtn.onclick = () => assignToMe(t.id);
+  actionCell.appendChild(assignBtn);
+
+  return tr;
+}
+
+async function updateStatus(ticketId, status) {
+  await fetch(`${TICKET_URL}/${ticketId}?status=${encodeURIComponent(status)}`, { method: "PATCH" });
+}
+
+async function assignToMe(ticketId) {
+  await fetch(`${STAFF_URL}/assign?ticket_id=${ticketId}&staff=${encodeURIComponent(currentUser.username)}`, { method: "POST" });
+}
+
+async function loadStats() {
+  const stats = await (await fetch(STATS_URL)).json();
+  document.getElementById("statsLine").textContent =
+    `Total: ${stats.total} - ` + Object.entries(stats.by_status).map(([k, v]) => `${k}: ${v}`).join(", ");
+}
+
+function connectWebSocket() {
+  const socket = new WebSocket(WS_URL);
+  socket.onmessage = (msg) => {
+    const event = JSON.parse(msg.data);
+    const log = document.getElementById("liveLog");
+    const line = document.createElement("div");
+    line.textContent = `${event.event}: ticket #${event.ticket.id} is now "${event.ticket.status}"`;
+    log.appendChild(line);
+    log.scrollTop = log.scrollHeight;
+    loadTickets();
+    loadStats();
+  };
+}
+</script>
+
+</body>
+</html>

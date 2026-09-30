@@ -25,6 +25,7 @@ extra complexity.
 ```mermaid
 flowchart LR
   SW["Student web page<br/>no login"]
+  FW["Staff web page<br/>login"]
   SC["Staff CLI<br/>login"]
   A["auth-service :8001"]
   SF["staff-service :8004"]
@@ -32,6 +33,10 @@ flowchart LR
   T["ticket-service :8002<br/>stores tickets"]
   N["notify-service :8003<br/>WebSocket hub"]
   SW -->|HTTP| T
+  FW -->|HTTP| A
+  FW -->|HTTP| SF
+  FW -->|HTTP| ST
+  FW -->|HTTP| T
   SC -->|HTTP| A
   SC -->|HTTP| SF
   SC -->|HTTP| ST
@@ -39,9 +44,15 @@ flowchart LR
   SF -->|HTTP| T
   ST -->|HTTP| T
   T -->|POST /broadcast| N
+  N -.->|WebSocket: all events| FW
   N -.->|WebSocket: all events| SC
   N -.->|WebSocket: only their ticket| SW
 ```
+
+The staff web page (`staff.html`) and the staff CLI are just two different
+clients doing the same thing — both log in through auth-service and both
+open a `role=staff` WebSocket. Pick whichever one you want to show in the
+demo, or run both at once.
 
 Rules shown in the chart:
 - Students only ever talk to ticket-service — they never touch auth-service.
@@ -101,15 +112,28 @@ sequenceDiagram
 
 ### Clients
 
-- **Student web page** (`clients/web_client/index.html`, plain HTML +
-  vanilla JS): no login. A form (name + problem) submits to ticket-service
-  and shows "Your ticket #4". A "Track my ticket" box looks up any ticket
-  number and opens a WebSocket scoped to that ticket, so status changes
-  appear live.
-- **Staff CLI** (`clients/cli_client/cli.py`): asks for username + password
-  against auth-service, then a menu — list tickets, change status, assign
-  ticket, view stats, quit. A background thread holds a `role=staff`
-  WebSocket and prints `[LIVE]` events as they arrive.
+The web client is 3 plain HTML files (no build step, no framework) in
+`clients/web_client/`:
+
+- **`index.html`** — a landing page with two links: "Student" and "Staff".
+  No logic beyond a couple of `<a href>` cards.
+- **`student.html`** — no login. A form (name + problem) submits to
+  ticket-service and shows "Your ticket #4". A "Track a ticket" box looks up
+  any ticket number and opens a WebSocket scoped to that ticket, so status
+  changes appear live.
+- **`staff.html`** — a quick-login screen (one click for `carol` or `dave`,
+  demo credentials filled in for you), then a ticket table with a status
+  dropdown and an "Assign to me" button per row, a stats panel, and a live
+  updates log. It opens a `role=staff` WebSocket on login so the whole table
+  refreshes the moment anything changes.
+
+There is also a **Staff CLI** (`clients/cli_client/cli.py`) as a second,
+non-browser client: it asks for username + password against auth-service,
+then offers a menu — list tickets, change status, assign ticket, view
+stats, quit. A background thread holds a `role=staff` WebSocket and prints
+`[LIVE]` events as they arrive. The staff web page and the staff CLI are
+two independent clients of the same services — you can run either, or both
+at once, and they'll stay in sync over WebSocket.
 
 No database: everything lives in a Python list/dict inside `ticket-service`
 (small hardcoded dicts in `auth-service`/`staff-service`). No Docker: every
@@ -146,9 +170,10 @@ cd clients/web_client
 python3 -m http.server 8080
 ```
 
-Open `http://localhost:8080`.
+Open `http://localhost:8080` — pick **Student** or **Staff**. Staff logs in
+with one click (`carol` / `carol123` or `dave` / `dave123` are pre-filled).
 
-### Run the staff CLI
+### Run the staff CLI (optional second staff client)
 
 ```bash
 python3 clients/cli_client/cli.py
@@ -158,16 +183,17 @@ Demo staff logins: `carol` / `carol123` or `dave` / `dave123`.
 
 ## 4. Demo script (4 steps)
 
-1. Start all 5 services and open the web page. As a student (no login
-   needed), submit a ticket — the page shows "Your ticket #1".
-2. In another terminal, log into the staff CLI as `carol`. It immediately
-   prints `[LIVE] ticket_created` for that ticket — no refresh, no polling.
-3. In the CLI, assign the ticket to `carol` (option 3) or change its status
-   (option 2). Switch to the browser: the ticket status and the "Live
-   updates" box change instantly, because the student's page only opened a
-   WebSocket for that one ticket number.
-4. In the CLI, view stats (option 4) to show `stats-service` pulling live
-   counts from `ticket-service` over plain HTTP.
+1. Open the web page, choose **Student**, and submit a ticket (no login) —
+   the page shows "Your ticket #1" and starts tracking it live.
+2. In another tab, choose **Staff** and log in with one click as `carol`.
+   The ticket immediately shows up in her table — no refresh, no polling.
+3. As `carol`, click "Assign to me" or change the status dropdown. Switch
+   back to the student tab: the badge and the "Live updates" box change
+   instantly, because the student's page only opened a WebSocket for that
+   one ticket number.
+4. Point at the "Stats" panel on the staff page (or run the staff CLI and
+   choose "View stats") to show `stats-service` pulling live counts from
+   `ticket-service` over plain HTTP.
 
 ## 5. Defense cheat-sheet
 

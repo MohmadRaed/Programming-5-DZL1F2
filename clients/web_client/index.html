@@ -7,159 +7,49 @@
   * { box-sizing: border-box; }
   body {
     font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
-    max-width: 640px;
-    margin: 40px auto;
+    max-width: 480px;
+    margin: 80px auto;
     padding: 0 16px;
     background: #f4f6f8;
     color: #1f2937;
+    text-align: center;
   }
-  h1 { font-size: 1.6rem; margin-bottom: 4px; }
-  .subtitle { color: #6b7280; margin-top: 0; margin-bottom: 24px; }
-  .card {
+  h1 { font-size: 1.8rem; margin-bottom: 8px; }
+  .subtitle { color: #6b7280; margin-bottom: 32px; }
+  .choices { display: flex; gap: 16px; justify-content: center; }
+  .choice {
+    flex: 1;
     background: #fff;
     border: 1px solid #e5e7eb;
     border-radius: 10px;
-    padding: 20px;
-    margin-bottom: 20px;
+    padding: 28px 16px;
+    text-decoration: none;
+    color: #1f2937;
     box-shadow: 0 1px 2px rgba(0,0,0,0.04);
   }
-  .card h2 { margin-top: 0; font-size: 1.1rem; }
-  label { display: block; font-size: 0.85rem; color: #6b7280; margin: 10px 0 4px; }
-  input {
-    width: 100%;
-    padding: 8px 10px;
-    border: 1px solid #d1d5db;
-    border-radius: 6px;
-    font-size: 0.95rem;
-  }
-  input:focus { outline: none; border-color: #6366f1; }
-  button {
-    margin-top: 14px;
-    padding: 8px 16px;
-    background: #4f46e5;
-    color: #fff;
-    border: none;
-    border-radius: 6px;
-    font-size: 0.9rem;
-    cursor: pointer;
-  }
-  button:hover { background: #4338ca; }
-  #submitResult { font-size: 0.9rem; color: #065f46; margin-top: 10px; }
-  #ticketBox { display: none; }
-  .ticket-header { display: flex; justify-content: space-between; align-items: center; }
-  .ticket-title { font-weight: 600; }
-  .badge {
-    display: inline-block;
-    padding: 3px 10px;
-    border-radius: 999px;
-    font-size: 0.75rem;
-    font-weight: 600;
-    text-transform: uppercase;
-    color: #fff;
-  }
-  .badge-open { background: #6b7280; }
-  .badge-assigned { background: #d97706; }
-  .badge-in_progress { background: #2563eb; }
-  .badge-done { background: #16a34a; }
-  .assigned-to { color: #6b7280; font-size: 0.85rem; margin-top: 4px; }
-  #liveLog {
-    background: #f9fafb;
-    border: 1px solid #e5e7eb;
-    border-radius: 6px;
-    padding: 8px 10px;
-    height: 90px;
-    overflow-y: auto;
-    font-size: 0.8rem;
-    color: #4b5563;
-    margin-top: 10px;
-  }
-  #liveLog div { padding: 2px 0; }
+  .choice:hover { border-color: #4f46e5; }
+  .choice .icon { font-size: 2rem; }
+  .choice h2 { font-size: 1.05rem; margin: 10px 0 4px; }
+  .choice p { font-size: 0.85rem; color: #6b7280; margin: 0; }
 </style>
 </head>
 <body>
 
 <h1>Campus Help Desk</h1>
-<p class="subtitle">Report a problem, no login needed.</p>
+<p class="subtitle">Who are you signing in as?</p>
 
-<div class="card">
-  <h2>Submit a problem</h2>
-  <label for="studentName">Your name</label>
-  <input id="studentName" placeholder="e.g. Alice">
-  <label for="problemTitle">Describe your issue</label>
-  <input id="problemTitle" placeholder="e.g. Wifi down in building B">
-  <button onclick="submitTicket()">Submit</button>
-  <p id="submitResult"></p>
+<div class="choices">
+  <a class="choice" href="student.html">
+    <div class="icon">🎓</div>
+    <h2>Student</h2>
+    <p>Report a problem, no login needed</p>
+  </a>
+  <a class="choice" href="staff.html">
+    <div class="icon">🛠️</div>
+    <h2>Staff</h2>
+    <p>Log in to manage tickets</p>
+  </a>
 </div>
-
-<div class="card">
-  <h2>Track a ticket</h2>
-  <label for="trackId">Ticket number</label>
-  <input id="trackId" placeholder="e.g. 4" type="number">
-  <button onclick="trackTicket(document.getElementById('trackId').value)">Track</button>
-</div>
-
-<div class="card" id="ticketBox">
-  <div class="ticket-header">
-    <span class="ticket-title" id="ticketTitle"></span>
-    <span class="badge" id="ticketStatus"></span>
-  </div>
-  <div class="assigned-to" id="ticketStaff"></div>
-  <h2 style="margin-top:16px;">Live updates</h2>
-  <div id="liveLog"></div>
-</div>
-
-<script>
-const TICKET_URL = "http://localhost:8002/tickets";
-const WS_HOST = "ws://localhost:8003/ws";
-
-let socket = null;
-
-async function submitTicket() {
-  const name = document.getElementById("studentName").value;
-  const title = document.getElementById("problemTitle").value;
-  if (!name || !title) return;
-  const url = `${TICKET_URL}?name=${encodeURIComponent(name)}&title=${encodeURIComponent(title)}`;
-  const res = await fetch(url, { method: "POST" });
-  const ticket = await res.json();
-  document.getElementById("submitResult").textContent = `Your ticket number is #${ticket.id} - keep it to track your ticket.`;
-  trackTicket(ticket.id);
-}
-
-async function trackTicket(id) {
-  if (!id) return;
-  const res = await fetch(`${TICKET_URL}/${id}`);
-  const ticket = await res.json();
-  if (ticket.error) {
-    alert("No ticket with that number");
-    return;
-  }
-  showTicket(ticket);
-  connectWebSocket(ticket.id);
-}
-
-function showTicket(ticket) {
-  document.getElementById("ticketBox").style.display = "block";
-  document.getElementById("ticketTitle").textContent = `#${ticket.id} - ${ticket.title}`;
-  const status = document.getElementById("ticketStatus");
-  status.textContent = ticket.status.replace("_", " ");
-  status.className = `badge badge-${ticket.status}`;
-  document.getElementById("ticketStaff").textContent = ticket.staff ? `Assigned to ${ticket.staff}` : "";
-}
-
-function connectWebSocket(ticketId) {
-  if (socket) socket.close();
-  socket = new WebSocket(`${WS_HOST}?ticket=${ticketId}`);
-  socket.onmessage = (msg) => {
-    const event = JSON.parse(msg.data);
-    showTicket(event.ticket);
-    const log = document.getElementById("liveLog");
-    const line = document.createElement("div");
-    line.textContent = `${event.event}: now "${event.ticket.status}"`;
-    log.appendChild(line);
-    log.scrollTop = log.scrollHeight;
-  };
-}
-</script>
 
 </body>
 </html>
