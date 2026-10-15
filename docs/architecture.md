@@ -65,7 +65,8 @@ Rules shown in the chart:
 
 ## Clients
 
-The web client is 3 plain HTML files (no build step, no framework) in
+The web client is 3 plain HTML pages plus one shared stylesheet (`style.css`)
+and one shared script (`stepper.js`), with no build step and no framework, in
 `clients/web_client/`:
 
 - **`index.html`**: a landing page with two links, "Student" and "Staff".

@@ -1,9 +1,8 @@
-import asyncio
 import json
 import threading
 
 import httpx
-import websockets
+from websockets.sync.client import connect
 
 AUTH_URL = "http://localhost:8001"
 TICKET_URL = "http://localhost:8002/tickets"
@@ -13,25 +12,21 @@ WS_URL = "ws://localhost:8003/ws?role=staff"
 
 
 def listen_for_events():
-    asyncio.run(ws_loop())
-
-
-async def ws_loop():
-    async with websockets.connect(WS_URL) as ws:
-        async for message in ws:
+    with connect(WS_URL) as ws:
+        for message in ws:
             event = json.loads(message)
             print(f"\n[LIVE] {event['event']}: {event['ticket']}\n> ", end="", flush=True)
 
 
 def login():
     print("Staff login (demo: carol/carol123 or dave/dave123)")
-    username = input("Username: ")
-    password = input("Password: ")
-    result = httpx.post(f"{AUTH_URL}/login", params={"username": username, "password": password}).json()
-    if "error" in result:
+    while True:
+        username = input("Username: ")
+        password = input("Password: ")
+        result = httpx.post(f"{AUTH_URL}/login", params={"username": username, "password": password}).json()
+        if "error" not in result:
+            return result
         print(result["error"])
-        return login()
-    return result
 
 
 def main():

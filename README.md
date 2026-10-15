@@ -29,5 +29,5 @@ Open `http://localhost:8080`. Demo staff logins: `carol` / `carol123`,
 ## Project layout
 
 - `services/`: five microservices, one `main.py` each (ports 8001-8005)
-- `clients/`: `web_client` (3 HTML files) and `cli_client` (`cli.py`)
+- `clients/`: `web_client` (3 HTML pages, `style.css`, `stepper.js`) and `cli_client` (`cli.py`)
 - `docs/`: project description and diagrams (Mermaid)

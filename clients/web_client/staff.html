@@ -3,119 +3,7 @@
 <head>
 <meta charset="UTF-8">
 <title>Help Desk - Staff</title>
-<style>
-  * { box-sizing: border-box; }
-  body {
-    font-family: -apple-system, "Segoe UI", Roboto, sans-serif;
-    max-width: 760px;
-    margin: 40px auto;
-    padding: 0 16px 40px;
-    min-height: 100vh;
-    background: linear-gradient(160deg, #eef2ff 0%, #f5f3ff 45%, #fdf2f8 100%);
-    color: #1f2937;
-  }
-  a.back { color: #4f46e5; text-decoration: none; font-size: 0.85rem; }
-  h1 { font-size: 1.6rem; margin-bottom: 4px; }
-  .subtitle { color: #6b7280; margin-top: 0; margin-bottom: 24px; }
-  .card {
-    background: rgba(255,255,255,0.85);
-    backdrop-filter: blur(6px);
-    border: 1px solid rgba(255,255,255,0.6);
-    border-radius: 14px;
-    padding: 20px;
-    margin-bottom: 20px;
-    box-shadow: 0 4px 20px rgba(79,70,229,0.08);
-  }
-  .card h2 { margin-top: 0; font-size: 1.1rem; }
-  button {
-    padding: 8px 16px;
-    background: #4f46e5;
-    color: #fff;
-    border: none;
-    border-radius: 6px;
-    font-size: 0.9rem;
-    cursor: pointer;
-    transition: background 0.15s, transform 0.1s;
-  }
-  button:hover { background: #4338ca; }
-  button:active { transform: scale(0.97); }
-  button.secondary { background: #6b7280; }
-  button.secondary:hover { background: #4b5563; }
-  #loginBox button { margin: 4px 8px 4px 0; }
-  #appBox { display: none; }
-  select {
-    padding: 6px 8px;
-    border-radius: 6px;
-    border: 1px solid #d1d5db;
-    font-size: 0.85rem;
-    background: #fff;
-  }
-
-  .ticket-card {
-    background: rgba(255,255,255,0.85);
-    backdrop-filter: blur(6px);
-    border: 1px solid rgba(255,255,255,0.6);
-    border-radius: 14px;
-    padding: 18px 20px;
-    margin-bottom: 16px;
-    box-shadow: 0 4px 20px rgba(79,70,229,0.08);
-  }
-  .ticket-head { display: flex; justify-content: space-between; align-items: baseline; flex-wrap: wrap; gap: 6px; }
-  .ticket-title { font-weight: 600; }
-  .ticket-meta { color: #6b7280; font-size: 0.8rem; }
-  .ticket-actions { margin-top: 14px; display: flex; gap: 8px; align-items: center; }
-
-  .stepper { display: flex; align-items: flex-start; margin: 22px 0 10px; }
-  .step { flex: 1; text-align: center; position: relative; }
-  .step-line {
-    position: absolute; top: 13px; left: -50%; width: 100%; height: 3px;
-    background: #e5e7eb; z-index: 0;
-  }
-  .step:first-child .step-line { display: none; }
-  .step-line-fill {
-    position: absolute; top: 0; left: 0; height: 100%; width: 0%;
-    background: linear-gradient(90deg, #6366f1, #a855f7);
-    transition: width 0.6s ease;
-  }
-  .step-dot {
-    position: relative; z-index: 1;
-    width: 26px; height: 26px; margin: 0 auto 6px;
-    border-radius: 50%; background: #e5e7eb; color: #9ca3af;
-    display: flex; align-items: center; justify-content: center;
-    font-size: 0.7rem; font-weight: 700;
-    transition: background 0.4s, color 0.4s, box-shadow 0.4s;
-  }
-  .step-label { font-size: 0.65rem; color: #9ca3af; text-transform: capitalize; transition: color 0.4s; }
-  .step.done .step-dot { background: linear-gradient(135deg, #6366f1, #a855f7); color: #fff; }
-  .step.done .step-label { color: #4338ca; font-weight: 600; }
-  .step.current .step-dot {
-    background: linear-gradient(135deg, #6366f1, #a855f7); color: #fff;
-    animation: pulse 1.6s infinite;
-  }
-  .step.current .step-label { color: #4338ca; font-weight: 700; }
-  @keyframes pulse {
-    0%   { box-shadow: 0 0 0 0 rgba(99,102,241,0.5); }
-    70%  { box-shadow: 0 0 0 8px rgba(99,102,241,0); }
-    100% { box-shadow: 0 0 0 0 rgba(99,102,241,0); }
-  }
-
-  #statsLine { font-size: 0.9rem; color: #374151; }
-  #liveLog {
-    background: #f9fafb;
-    border: 1px solid #e5e7eb;
-    border-radius: 6px;
-    padding: 8px 10px;
-    height: 110px;
-    overflow-y: auto;
-    font-size: 0.8rem;
-    color: #4b5563;
-  }
-  #liveLog div { padding: 2px 0; animation: fadeIn 0.3s ease; }
-  @keyframes fadeIn {
-    from { opacity: 0; transform: translateY(-4px); }
-    to   { opacity: 1; transform: translateY(0); }
-  }
-</style>
+<link rel="stylesheet" href="style.css">
 </head>
 <body>
 
@@ -127,49 +15,44 @@
   <h2>Quick login (demo)</h2>
   <button onclick="login('carol', 'carol123')">Log in as carol</button>
   <button onclick="login('dave', 'dave123')">Log in as dave</button>
-  <p id="loginError" style="color:#b91c1c;"></p>
+  <p class="error" id="loginError"></p>
 </div>
 
-<div id="appBox">
-  <div class="card">
-    <h2>Tickets</h2>
-    <button class="secondary" onclick="loadTickets()">Refresh</button>
-  </div>
-
+<div id="appBox" hidden>
+  <h2>Tickets</h2>
   <div id="ticketList"></div>
 
   <div class="card">
     <h2>Stats</h2>
-    <button class="secondary" onclick="loadStats()">Refresh</button>
-    <p id="statsLine"></p>
+    <div id="statsLine"></div>
   </div>
 
   <div class="card">
     <h2>Live updates</h2>
-    <div id="liveLog"></div>
+    <div class="live-log" id="liveLog"></div>
   </div>
 </div>
 
+<script src="stepper.js"></script>
 <script>
 const AUTH_URL = "http://localhost:8001";
 const TICKET_URL = "http://localhost:8002/tickets";
 const STAFF_URL = "http://localhost:8004";
 const STATS_URL = "http://localhost:8005/stats";
 const WS_URL = "ws://localhost:8003/ws?role=staff";
-const STATUSES = ["open", "assigned", "in_progress", "done"];
 
 let currentUser = null;
 
 async function login(username, password) {
-  const res = await fetch(`${AUTH_URL}/login?username=${encodeURIComponent(username)}&password=${encodeURIComponent(password)}`, { method: "POST" });
+  const res = await fetch(`${AUTH_URL}/login?username=${username}&password=${password}`, { method: "POST" });
   const result = await res.json();
   if (result.error) {
     document.getElementById("loginError").textContent = result.error;
     return;
   }
   currentUser = result;
-  document.getElementById("loginBox").style.display = "none";
-  document.getElementById("appBox").style.display = "block";
+  document.getElementById("loginBox").hidden = true;
+  document.getElementById("appBox").hidden = false;
   document.getElementById("pageSubtitle").textContent = `Logged in as ${currentUser.username} (staff)`;
   loadTickets();
   loadStats();
@@ -184,68 +67,41 @@ async function loadTickets() {
 }
 
 function ticketCard(t) {
-  const div = document.createElement("div");
-  div.className = "ticket-card";
-  div.innerHTML = `
-    <div class="ticket-head">
-      <span class="ticket-title">#${t.id} - ${t.title}</span>
-      <span class="ticket-meta">reported by ${t.name}${t.staff ? " - assigned to " + t.staff : ""}</span>
-    </div>
-    <div class="stepper" id="stepper-${t.id}">
-      <div class="step" data-status="open"><div class="step-line"><div class="step-line-fill"></div></div><div class="step-dot">1</div><div class="step-label">Open</div></div>
-      <div class="step" data-status="assigned"><div class="step-line"><div class="step-line-fill"></div></div><div class="step-dot">2</div><div class="step-label">Assigned</div></div>
-      <div class="step" data-status="in_progress"><div class="step-line"><div class="step-line-fill"></div></div><div class="step-dot">3</div><div class="step-label">In progress</div></div>
-      <div class="step" data-status="done"><div class="step-line"><div class="step-line-fill"></div></div><div class="step-dot">4</div><div class="step-label">Done</div></div>
-    </div>
-    <div class="ticket-actions"></div>
-  `;
+  const card = document.createElement("div");
+  card.className = "card";
 
-  renderStepper(div.querySelector(`#stepper-${t.id}`), t.status);
+  const title = document.createElement("div");
+  title.className = "ticket-title";
+  title.textContent = `#${t.id} - ${t.title}`;
 
-  const actions = div.querySelector(".ticket-actions");
-  const statusSelect = document.createElement("select");
-  STATUSES.forEach(s => {
-    const opt = document.createElement("option");
-    opt.value = s;
-    opt.textContent = s.replace("_", " ");
-    if (s === t.status) opt.selected = true;
-    statusSelect.appendChild(opt);
-  });
-  statusSelect.onchange = () => updateStatus(t.id, statusSelect.value);
-  actions.appendChild(statusSelect);
+  const meta = document.createElement("div");
+  meta.className = "ticket-meta";
+  meta.textContent = `reported by ${t.name}` + (t.staff ? ` - assigned to ${t.staff}` : "");
 
-  const assignBtn = document.createElement("button");
-  assignBtn.textContent = "Assign to me";
-  assignBtn.className = "secondary";
-  assignBtn.onclick = () => assignToMe(t.id);
-  actions.appendChild(assignBtn);
+  const stepper = buildStepper();
+  setStepper(stepper, t.status);
 
-  return div;
-}
+  const select = document.createElement("select");
+  select.innerHTML = STATUSES.map(s => `<option value="${s}">${s.replace("_", " ")}</option>`).join("");
+  select.value = t.status;
+  select.onchange = () => fetch(`${TICKET_URL}/${t.id}?status=${select.value}`, { method: "PATCH" });
 
-function renderStepper(stepperEl, status) {
-  const currentIndex = STATUSES.indexOf(status);
-  stepperEl.querySelectorAll(".step").forEach((el, i) => {
-    el.classList.remove("done", "current");
-    if (i < currentIndex) el.classList.add("done");
-    if (i === currentIndex) el.classList.add("current");
-    const fill = el.querySelector(".step-line-fill");
-    if (fill) fill.style.width = i <= currentIndex ? "100%" : "0%";
-  });
-}
+  const assignButton = document.createElement("button");
+  assignButton.textContent = "Assign to me";
+  assignButton.onclick = () => fetch(`${STAFF_URL}/assign?ticket_id=${t.id}&staff=${currentUser.username}`, { method: "POST" });
 
-async function updateStatus(ticketId, status) {
-  await fetch(`${TICKET_URL}/${ticketId}?status=${encodeURIComponent(status)}`, { method: "PATCH" });
-}
+  const actions = document.createElement("div");
+  actions.className = "ticket-actions";
+  actions.append(select, assignButton);
 
-async function assignToMe(ticketId) {
-  await fetch(`${STAFF_URL}/assign?ticket_id=${ticketId}&staff=${encodeURIComponent(currentUser.username)}`, { method: "POST" });
+  card.append(title, meta, stepper, actions);
+  return card;
 }
 
 async function loadStats() {
   const stats = await (await fetch(STATS_URL)).json();
-  document.getElementById("statsLine").textContent =
-    `Total: ${stats.total} - ` + Object.entries(stats.by_status).map(([k, v]) => `${k}: ${v}`).join(", ");
+  const counts = Object.entries(stats.by_status).map(([status, n]) => `${status}: ${n}`);
+  document.getElementById("statsLine").textContent = `Total: ${stats.total} - ` + counts.join(", ");
 }
 
 function connectWebSocket() {
