@@ -18,7 +18,6 @@ def list_staff():
 
 @app.post("/assign")
 def assign(ticket_id: int, staff: str):
-    # staff-service doesn't own ticket data, it just asks ticket-service to update it
     r = httpx.patch(f"{TICKET_URL}/{ticket_id}", params={"staff": staff, "status": "assigned"})
     return r.json()
 

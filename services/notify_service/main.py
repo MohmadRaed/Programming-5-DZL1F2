@@ -5,9 +5,6 @@ import uvicorn
 app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
-# the one place that holds live WebSocket connections
-# staff connect with ?role=staff and see everything
-# students connect with ?ticket=<id> and only see events for that ticket
 connections = []
 
 
@@ -18,7 +15,7 @@ async def ws_endpoint(websocket: WebSocket, role: str = None, ticket: int = None
     connections.append(conn)
     try:
         while True:
-            await websocket.receive_text()  # clients don't send anything, just keeps the socket open
+            await websocket.receive_text()
     except WebSocketDisconnect:
         connections.remove(conn)
 

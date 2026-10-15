@@ -5,7 +5,6 @@ import uvicorn
 app = FastAPI()
 app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"])
 
-# staff-only login, plain text on purpose - students never log in
 STAFF = {
     "carol": "carol123",
     "dave": "dave123",

@@ -8,7 +8,6 @@ app.add_middleware(CORSMiddleware, allow_origins=["*"], allow_methods=["*"], all
 
 NOTIFY_URL = "http://localhost:8003/broadcast"
 
-# the only place tickets are stored
 tickets = []
 next_id = 1
 

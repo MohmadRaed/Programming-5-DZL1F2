@@ -38,7 +38,6 @@ def main():
     user = login()
     print(f"Logged in as {user['username']} ({user['role']})")
 
-    # background thread listens for live ticket events while the menu loop keeps running
     threading.Thread(target=listen_for_events, daemon=True).start()
 
     while True:
